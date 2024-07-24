@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 110 110%22><text y=%22.9em%22 font-size=%2290%22 stroke=%22white%22 fill=%22white%22>🖭</text></svg>">
+    <link rel="stylesheet" href="style.css">
+    <title>snd</title>
+  </head>
+  <body style="background:#222">
+    <main id="main">
+      <header>
+        <h1>🖭 snd</h1>
+        <aside id="settings">
+          <label>bpm:
+            <input
+              id="bpm"
+              type="number"
+              value="144"
+              step="1"
+              style="width: 3em"
+            >
+          </label>
+          <label>la:
+            <input
+              id="transpose"
+              type="number"
+              value="440"
+              step="1"
+              style="width: 3em"
+            >
+          </label>
+        </aside>
+      </header>
+      <div id="sounds"></div>
+      <button id="add">+</button>
+    </main>
+    <script src="snd.ts"></script>
+  </body>
+</html>

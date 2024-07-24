@@ -1,0 +1,56 @@
+html, body {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+}
+
+body, input, button {
+  background: #222;
+  color: #aaa;
+  font-family: "Roboto Condensed", sans-serif;
+}
+
+input, button {
+  background: #333;
+  font-size: 12pt;
+}
+
+main {
+  display: flex;
+  flex-flow: column;
+  gap: 10px;
+  padding: 10px;
+}
+
+header {
+  display: flex;
+  flex-flow: row nowrap;
+  justify-content: space-between;
+}
+
+aside {
+  display: flex;
+  flex-flow: column nowrap;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 6px;
+}
+
+h1 {
+  padding: 0;
+  margin: 0;
+  line-height: 1em;
+  font-size: 4em;
+}
+
+.row {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  justify-content: stretch;
+}
+
+.row label:after {
+  content: '=';
+}
