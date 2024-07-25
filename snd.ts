@@ -10,7 +10,7 @@ const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 const outs = Object.fromEntries([...ALPHABET].map(x => [x, 0])) as Record<string, [Float32Array, Float32Array] | 0>
 
 const SAMPLE_RATE = 48000
-const audio = new AudioContext({ sampleRate: SAMPLE_RATE })
+const audio = new AudioContext({ sampleRate: SAMPLE_RATE, latencyHint: 0.000001 })
 
 const Sounds = []
 
@@ -69,7 +69,7 @@ function Sound() {
     buffer?.getChannelData(L).set(out[L])
     buffer?.getChannelData(R).set(out[R])
   }
-  play.onclick = () => {
+  play.onmousedown = () => {
     play.textContent = play.textContent === Stop ? Play : Stop
     if (play.textContent === Stop) {
       buffer = audio.createBuffer(2, g.size, g.sr)
