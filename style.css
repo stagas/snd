@@ -33,15 +33,28 @@ aside {
   display: flex;
   flex-flow: column nowrap;
   align-items: flex-end;
-  justify-content: center;
+  justify-content: flex-end;
+  margin: 5px 7px;
   gap: 6px;
+}
+
+:root {
+  --s: #000;
+  --p: #f41;
 }
 
 h1 {
   padding: 0;
-  margin: 0;
+  margin: 5px 7px;
   line-height: 1em;
   font-size: 4em;
+  text-shadow:
+     0px  2px var(--s),
+    -6px -6px var(--s),
+    -6px  6px var(--s),
+     6px -6px var(--p),
+    -10px 8px var(--p)
+  ;
 }
 
 .row {

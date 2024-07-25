@@ -9,10 +9,26 @@ let sndIndex = 0
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 const outs = Object.fromEntries([...ALPHABET].map(x => [x, 0])) as Record<string, [Float32Array, Float32Array] | 0>
 
+const SAMPLE_RATE = 48000
+const audio = new AudioContext({ sampleRate: SAMPLE_RATE })
+
+const Sounds = []
+
+// initialize if empty
+if (!localStorage.snd0) {
+  localStorage.snd0 = `mod(1/4);set(1);exp(12);mul(.8);`
+  localStorage.snd1 = `mod(1/4);set(1);exp(13);`
+  localStorage.snd2 = `mod(1/4);sin((B.L*180)+55,1.29);mul(A.L);`
+  localStorage.bars0 = '0.25'
+  localStorage.bars1 = '0.25'
+  localStorage.bars2 = '1'
+  localStorage.count = '3'
+}
+
 function Sound() {
   const index = sndIndex++
   const id = ALPHABET[index]
-  const PI2 = Math.PI * 2
+  const pi2 = Math.PI * 2
   const L = 0
   const R = 1
 
@@ -25,18 +41,19 @@ function Sound() {
   label.textContent = id
   row.append(label)
 
-  const bars = document.createElement('input')
-  bars.value = localStorage.getItem('bars' + index) || '1'
-  bars.type = 'number'
-  bars.step = '1'
-  bars.style.width = '2em'
-  row.append(bars)
-
   const input = document.createElement('input')
   input.value = localStorage.getItem('snd' + index) || 'sin(1)'
   input.spellcheck = false
   input.style.width = '100%'
   row.append(input)
+
+  const bars = document.createElement('input')
+  bars.value = localStorage.getItem('bars' + index) || '1'
+  bars.type = 'number'
+  bars.step = '.25'
+  bars.min = '.25'
+  bars.style.width = '3em'
+  row.append(bars)
 
   const play = document.createElement('button')
   const Play = '🞂' //'▶️'
@@ -47,12 +64,16 @@ function Sound() {
     play.style.border = 'none'
 
   let source: AudioBufferSourceNode
+  let buffer: AudioBuffer
+  function updateBuffer() {
+    buffer?.getChannelData(L).set(out[L])
+    buffer?.getChannelData(R).set(out[R])
+  }
   play.onclick = () => {
     play.textContent = play.textContent === Stop ? Play : Stop
     if (play.textContent === Stop) {
-      const buffer = audio.createBuffer(2, g.size, g.sr)
-      buffer.getChannelData(L).set(out[L])
-      buffer.getChannelData(R).set(out[R])
+      buffer = audio.createBuffer(2, g.size, g.sr)
+      updateBuffer()
       source = audio.createBufferSource()
       source.buffer = buffer
       source.loop = true
@@ -79,64 +100,103 @@ function Sound() {
   sounds.appendChild(canvas)
   //#endregion
 
-  let chunk = 0
-
   const g = {
     /** sample position */
     n: 0,
     /** sample rate */
     sr: 48000,
-    /** control rate */
-    cr: 1,
     /** tempo coefficient */
     co: 1,
     /** buffer size */
     size: 48000 * bars.valueAsNumber,
+    /** real time */
+    rt: 0,
+    /** bar time */
+    bt: 0,
 
-    mod: Infinity,
+    pi2,
+
+    _mod: Infinity,
+
     ...Object.fromEntries([...ALPHABET].map(x => [x, { L: 0, R: 0 }])),
 
-    sin(hz: number) {
-      for (let i = g.n, t: number; i < chunk; i++) {
-        t = (i / g.sr) % g.mod
-        out[L][i] = Math.sin(t * hz * PI2)
-      }
+    mod(x: number) {
+      g._mod = x
+      const t = g.n / g.sr
+      g.rt = t % g._mod
+      g.bt = t % (g._mod * g.co)
+    },
+
+    sin(hz: number, phase: number = 0) {
+      out[L][g.n] =
+        out[R][g.n] =
+        Math.sin(g.bt * hz * pi2 + phase)
     },
 
     mul(x: number) {
-      for (let i = g.n, t: number; i < chunk; i++) {
-        out[L][i] *= x
-      }
+      out[L][g.n] *= x
+      out[R][g.n] *= x
     },
 
-    fill(x: number) {
-      for (let i = g.n, t: number; i < chunk; i++) {
-        out[L][i] = x
-      }
+    set(x: number) {
+      out[L][g.n] = x
+      out[R][g.n] = x
     },
 
     exp(amt: number) {
-      for (let i = g.n, t: number; i < chunk; i++) {
-        t = (i / g.sr) % (g.mod * g.co)
-        out[L][i] = out[L][i] * Math.exp(-t * amt * 2)
-      }
+      out[L][g.n] *= Math.exp(-g.bt * amt * 2)
+      out[R][g.n] *= Math.exp(-g.bt * amt * 2)
+    },
+
+    pow(amt: number) {
+      out[L][g.n] **= amt
+      out[R][g.n] **= amt
     },
   }
-
-  const audio = new AudioContext({ sampleRate: g.sr })
 
   let out: [Float32Array, Float32Array]
 
   function createOut() {
-    g.co = bpm.valueAsNumber / 60
+    g.co = 60 / bpm.valueAsNumber * 4
     g.size = g.sr * g.co * bars.valueAsNumber
-    out = outs[index] = [
+    out = outs[ALPHABET[index]] = [
       new Float32Array(g.size),
       new Float32Array(g.size),
     ]
   }
   createOut()
-  bars.oninput = bpm.oninput = () => { createOut(); process() }
+  bars.oninput = () => { createOut(); process(); updateBuffer() }
+  bpm.addEventListener('input', bars.oninput)
+
+  function popOuts(n: number) {
+    for (let i = 0; i < sndIndex; i++) {
+      const x = ALPHABET[i]
+      g[x].L = outs[x][L][n % outs[x][L].length]
+      g[x].R = outs[x][R][n % outs[x][R].length]
+    }
+  }
+
+  function process() {
+    out[L].fill(0)
+    out[R].fill(0)
+    g.n = 0
+    try {
+      const fn = new Function(...Object.keys(g), `
+        mod(Infinity);
+        ${input.value}
+      `)
+      for (g.n = 0; g.n < g.size; g.n++) {
+        popOuts(g.n)
+        fn(...Object.values(g))
+      }
+      localStorage.setItem('snd' + index, input.value)
+      localStorage.setItem('bars' + index, bars.value)
+      draw()
+    }
+    catch (e) {
+      console.error(e)
+    }
+  }
 
   function draw() {
     const HH = height / 2
@@ -168,48 +228,33 @@ function Sound() {
     c.stroke()
   }
 
-  function popOuts(x: number) {
-    for (let i = 0; i < sndIndex; i++) {
-      g[ALPHABET[i]].L = outs[i][L][x % outs[i][L].length]
-      g[ALPHABET[i]].R = outs[i][R][x % outs[i][R].length]
-    }
-  }
-
-  function process() {
-    out[L].fill(0)
-    out[R].fill(0)
-    g.n = 0
-    const chunkSize = g.cr
-    const fn = new Function(...Object.keys(g), input.value)
-    try {
-      // @ts-ignore
-      with (g) {
-        while (g.n < g.size) {
-          g.mod = Infinity
-          popOuts(g.n)
-          chunk = g.n + chunkSize
-          fn(...Object.values(g))
-          g.n += chunkSize
+  process()
+  input.onkeydown = (e: KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      process()
+      updateBuffer()
+      for (const sound of Sounds) {
+        if (sound.input.value.includes(ALPHABET[index] + '.L')
+          || sound.input.value.includes(ALPHABET[index] + '.R')) {
+          sound.process()
+          sound.updateBuffer()
         }
       }
-      localStorage.setItem('snd' + index, input.value)
-      localStorage.setItem('bars' + index, bars.value)
-      draw()
-    }
-    catch (e) {
-      console.error(e)
     }
   }
 
-  process()
-  input.oninput = process
-
   localStorage.count = sndIndex
+
+  return {
+    input,
+    process,
+    updateBuffer,
+  }
 }
 
 const count = +localStorage.count || 1
 for (let i = 0; i < count; i++) {
-  Sound()
+  Sounds.push(Sound())
 }
 
-add.onclick = () => Sound()
+add.onclick = () => Sounds.push(Sound())
